@@ -201,10 +201,10 @@ def evaluate(model: MultiLayerPerceptron, X_test: npt.NDArray[Any], y_test_raw: 
     return float((correct / len(y_test_raw)) * 100.0)
 
 def train_mnist() -> None:
-    train_images_path = "train-images-idx3-ubyte"
-    train_labels_path = "train-labels-idx1-ubyte"
-    test_images_path = "t10k-images-idx3-ubyte"
-    test_labels_path = "t10k-labels-idx1-ubyte"
+    train_images_path = "./data/train-images-idx3-ubyte"
+    train_labels_path = "./data/train-labels-idx1-ubyte"
+    test_images_path = "./data/t10k-images-idx3-ubyte"
+    test_labels_path = "./data/t10k-labels-idx1-ubyte"
 
     print("Loading FULL MNIST datasets (60,000 Training | 10,000 Test)...")
 
@@ -273,7 +273,7 @@ def train_mnist() -> None:
     print("-" * 80)
     final_test_accuracy = evaluate(mlp, X_test, y_test_raw)
     print(f"Final Test Accuracy (10,000 samples): {final_test_accuracy:.2f}%")
-    mlp.save_weights("mnist-mlp")
+    mlp.save_weights("./weights/mnist-mlp")
 
 if __name__ == "__main__":
     train_mnist()
