@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.typing as npt
-from typing import Any, Tuple, List, Optional
+from typing import Any, Tuple, List, Optional, Dict
 import time
 
 from loader import MnistDataLoader
@@ -177,6 +177,23 @@ class MultiLayerPerceptron:
 
         return loss
 
+    def save_weights(self, filepath: str) -> None:
+        weights_dictionary: Dict[str, npt.NDArray[Any]] = {}
+        for index, layer in enumerate(self.layers):
+            parameters = layer.parameters()
+            if parameters:
+                weights_dictionary[f"layer_{index}_W"] = parameters[0].data
+                weights_dictionary[f"layer_{index}_b"] = parameters[1].data
+        np.savez_compressed(filepath, allow_pickle=True, **weights_dictionary)
+
+    def load_weights(self, filepath: str) -> None:
+        checkpoint = np.load(filepath)
+        for index, layer in enumerate(self.layers):
+            parameters = layer.parameters()
+            if parameters:
+                parameters[0].data = checkpoint[f"layer_{index}_W"]
+                parameters[1].data = checkpoint[f"layer_{index}_b"]
+
 def evaluate(model: MultiLayerPerceptron, X_test: npt.NDArray[Any], y_test_raw: npt.NDArray[Any]) -> float:
     probabilities = model.predict(X_test)
     predictions = np.argmax(probabilities, axis=1)
@@ -256,6 +273,7 @@ def train_mnist() -> None:
     print("-" * 80)
     final_test_accuracy = evaluate(mlp, X_test, y_test_raw)
     print(f"Final Test Accuracy (10,000 samples): {final_test_accuracy:.2f}%")
+    mlp.save_weights("mnist-mlp")
 
 if __name__ == "__main__":
     train_mnist()
