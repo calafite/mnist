@@ -38,14 +38,18 @@ class AdamOptimiser:
 
         for p in parameters:
             if self.weight_decay > 0.0:
+                # add l2 regularization gradient term to discourage large weights
                 p.grad += self.weight_decay * p.data
 
+            # first and second moment estimates track mean and uncentered variance of gradients
             p.m = self.beta1 * p.m + (1.0 - self.beta1) * p.grad
             p.v = self.beta2 * p.v + (1.0 - self.beta2) * (p.grad ** 2)
 
+            # bias correction removes initialization bias in early optimizer steps
             m_line = p.m / (1.0 - self.beta1 ** self.t)
             v_line = p.v / (1.0 - self.beta2 ** self.t)
 
+            # parameter update uses adaptive per-coordinate scaling by rms gradient magnitude
             p.data -= self.lr * m_line / (np.sqrt(v_line) + self.eps)
 
 class Shared:
@@ -53,6 +57,7 @@ class Shared:
 
     @staticmethod
     def kaiming_initialization(input_size: int, output_size: int) -> npt.NDArray[Any]:
+        # he initialization keeps activation variance stable through relu layers
         return Shared.rng.normal(0.0, np.sqrt(2.0 / input_size), size=(input_size, output_size)).astype(np.float32)
 
     @staticmethod
@@ -61,8 +66,10 @@ class Shared:
 
     @staticmethod
     def softmax(inputs: npt.NDArray[Any]) -> npt.NDArray[Any]:
+        # max shift uses log-sum-exp stabilization to avoid overflow in exponentials
         shifted_inputs = inputs - np.max(inputs, axis=1, keepdims=True)
         exps = np.exp(shifted_inputs).astype(np.float32)
+        # normalizing exponentials converts logits into class probabilities
         return exps / np.sum(exps, axis=1, keepdims=True)
 
 class DenseLayer:
@@ -77,14 +84,17 @@ class DenseLayer:
 
     def forward(self, inputs: npt.NDArray[Any]) -> npt.NDArray[Any]:
         self.inputs = inputs
+        # affine map computes wx + b for all samples in the batch
         return np.dot(inputs, self.W.data) + self.b.data
 
     def backward(self, d_outputs: npt.NDArray[Any]) -> npt.NDArray[Any]:
         assert self.inputs is not None
 
+        # dense layer gradients come from matrix calculus of the affine transform
         self.W.grad = np.dot(self.inputs.T, d_outputs)
         self.b.grad = np.sum(d_outputs, axis=0, keepdims=True)
 
+        # chain rule propagates gradient to previous layer activations
         d_inputs = np.dot(d_outputs, self.W.data.T)
         return d_inputs
 
@@ -104,6 +114,7 @@ class ReLULayer:
     def backward(self, d_outputs: npt.NDArray[Any]) -> npt.NDArray[Any]:
         assert self.inputs is not None
 
+        # derivative of relu is 1 on positive inputs and 0 otherwise
         relu_derivative = (self.inputs > 0).astype(np.float32)
         return d_outputs * relu_derivative
 
@@ -124,6 +135,7 @@ class SoftmaxCrossEntropy:
 
         batch_size = inputs.shape[0]
         prob = self.probabilities + 1e-15
+        # cross-entropy is negative log-likelihood of true classes under predicted probabilities
         loss = float(-np.sum(expected * np.log(prob)) / batch_size)
 
         return loss, self.probabilities
@@ -133,6 +145,7 @@ class SoftmaxCrossEntropy:
         assert self.probabilities is not None
 
         batch_size = self.expected.shape[0]
+        # with softmax + cross-entropy, gradient simplifies to p - y averaged over batch
         return (self.probabilities - self.expected) / batch_size
 
 class MultiLayerPerceptron:
